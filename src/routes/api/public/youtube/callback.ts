@@ -30,6 +30,14 @@ export const Route = createFileRoute("/api/public/youtube/callback")({
             );
           }
           const channel = await fetchChannelInfo(tokens.access_token);
+          if (!channel.id) {
+            return Response.redirect(
+              `${home}?yt_error=${encodeURIComponent(
+                "Tidak menemukan channel YouTube pada akun Google yang dipilih.",
+              )}`,
+              302,
+            );
+          }
           await saveAccount({
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
