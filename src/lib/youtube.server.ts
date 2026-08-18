@@ -198,17 +198,20 @@ export async function uploadDriveVideoToYouTube(opts: {
 }) {
   const accessToken = await getValidAccessToken(opts.channelId ?? null);
 
-  const driveRes = await fetch(driveDownloadUrl(opts.fileId));
-  if (!driveRes.ok || !driveRes.body) {
-    throw new Error(
-      `Gagal mengunduh dari Google Drive [${driveRes.status}]. Pastikan link "anyone with the link".`,
-    );
-  }
-  const contentType = driveRes.headers.get("content-type") ?? "";
-  if (contentType.includes("text/html")) {
-    throw new Error(
-      "Google Drive mengembalikan halaman HTML, bukan file video. Pastikan file dibagikan publik dan bukan folder.",
-    );
+  let driveRes = await fetch(driveDownloadUrl(opts.fileId));
+  let contentType = driveRes.headers.get("content-type") ?? "";
+  if (!driveRes.ok || !driveRes.body || contentType.includes("text/html")) {
+    // Fallback: unduh lewat konektor Google Drive (file privat / butuh izin).
+    const { fetchDriveFileViaGateway } = await import("./drive.server");
+    const viaGateway = await fetchDriveFileViaGateway(opts.fileId);
+    if (!viaGateway.ok || !viaGateway.body) {
+      const detail = await viaGateway.text().catch(() => "");
+      throw new Error(
+        `Gagal mengunduh file dari Google Drive [${viaGateway.status}]. Pastikan file dibagikan publik atau dapat diakses akun Drive yang terhubung. ${detail.slice(0, 300)}`,
+      );
+    }
+    driveRes = viaGateway;
+    contentType = viaGateway.headers.get("content-type") ?? "video/*";
   }
   const contentLength = driveRes.headers.get("content-length");
 
