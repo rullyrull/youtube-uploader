@@ -48,6 +48,7 @@ type AccountRow = {
   access_token: string;
   refresh_token: string;
   expires_at: string;
+  channel_id: string;
   channel_title: string | null;
 };
 
@@ -56,34 +57,46 @@ async function admin() {
   return supabaseAdmin;
 }
 
-export async function loadAccount(): Promise<AccountRow | null> {
+export async function loadAccounts(): Promise<AccountRow[]> {
   const db = await admin();
   const { data, error } = await db
     .from("youtube_account")
-    .select("access_token, refresh_token, expires_at, channel_title")
-    .eq("id", "default")
-    .maybeSingle();
+    .select("access_token, refresh_token, expires_at, channel_id, channel_title")
+    .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data as AccountRow | null) ?? null;
+  return (data as AccountRow[] | null) ?? [];
+}
+
+export async function loadAccount(channelId?: string | null): Promise<AccountRow | null> {
+  const accounts = await loadAccounts();
+  if (channelId) {
+    // fallback ke akun pertama kalau channel dipilih bukan channel utama akun manapun
+    return accounts.find((a) => a.channel_id === channelId) ?? accounts[0] ?? null;
+  }
+  return accounts[0] ?? null;
 }
 
 export async function saveAccount(row: {
   access_token: string;
   refresh_token: string;
   expires_at: string;
-  channel_id?: string | null;
+  channel_id: string;
   channel_title?: string | null;
 }) {
   const db = await admin();
   const { error } = await db
     .from("youtube_account")
-    .upsert({ id: "default", ...row, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "channel_id" });
   if (error) throw error;
 }
 
-export async function deleteAccount() {
+export async function deleteAccount(channelId?: string | null) {
   const db = await admin();
-  await db.from("youtube_account").delete().eq("id", "default");
+  if (channelId) {
+    await db.from("youtube_account").delete().eq("channel_id", channelId);
+    return;
+  }
+  await db.from("youtube_account").delete().not("channel_id", "is", null);
 }
 
 export async function exchangeCode(code: string, redirectUri: string) {
@@ -126,8 +139,8 @@ async function refreshAccessToken(refreshToken: string) {
 }
 
 /** Ambil access token yang valid, refresh otomatis kalau sudah mau habis. */
-export async function getValidAccessToken(): Promise<string> {
-  const account = await loadAccount();
+export async function getValidAccessToken(channelId?: string | null): Promise<string> {
+  const account = await loadAccount(channelId);
   if (!account) throw new Error("Belum ada akun YouTube yang terhubung.");
   const expiresAt = new Date(account.expires_at).getTime();
   if (expiresAt - Date.now() > 60_000) return account.access_token;
@@ -138,6 +151,8 @@ export async function getValidAccessToken(): Promise<string> {
     access_token: refreshed.access_token,
     refresh_token: account.refresh_token,
     expires_at: newExpiry,
+    channel_id: account.channel_id,
+    channel_title: account.channel_title,
   });
   return refreshed.access_token;
 }
@@ -181,7 +196,7 @@ export async function uploadDriveVideoToYouTube(opts: {
   channelId?: string | null;
   kind?: "video" | "reels";
 }) {
-  const accessToken = await getValidAccessToken();
+  const accessToken = await getValidAccessToken(opts.channelId ?? null);
 
   const driveRes = await fetch(driveDownloadUrl(opts.fileId));
   if (!driveRes.ok || !driveRes.body) {
