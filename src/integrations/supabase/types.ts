@@ -86,7 +86,7 @@ export type Database = {
       youtube_account: {
         Row: {
           access_token: string
-          channel_id: string | null
+          channel_id: string
           channel_title: string | null
           created_at: string
           expires_at: string
@@ -96,7 +96,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
-          channel_id?: string | null
+          channel_id: string
           channel_title?: string | null
           created_at?: string
           expires_at: string
@@ -106,7 +106,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
-          channel_id?: string | null
+          channel_id?: string
           channel_title?: string | null
           created_at?: string
           expires_at?: string
