@@ -69,7 +69,10 @@ export async function loadAccounts(): Promise<AccountRow[]> {
 
 export async function loadAccount(channelId?: string | null): Promise<AccountRow | null> {
   const accounts = await loadAccounts();
-  if (channelId) return accounts.find((a) => a.channel_id === channelId) ?? null;
+  if (channelId) {
+    // fallback ke akun pertama kalau channel dipilih bukan channel utama akun manapun
+    return accounts.find((a) => a.channel_id === channelId) ?? accounts[0] ?? null;
+  }
   return accounts[0] ?? null;
 }
 
