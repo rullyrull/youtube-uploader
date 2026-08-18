@@ -156,6 +156,7 @@ function Home() {
     onSuccess: (res) => {
       toast.success("Video berhasil diunggah ke YouTube!");
       setDriveUrl("");
+      setSelectedFileId("");
       setTitle("");
       setDescription("");
       queryClient.invalidateQueries({ queryKey: ["yt-uploads"] });
@@ -164,6 +165,27 @@ function Home() {
     onError: (e: Error) => toast.error(e.message),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["yt-uploads"] }),
   });
+
+  const browseFolder = useMutation({
+    mutationFn: (url: string) => listFolderFn({ data: { folderUrl: url } }),
+    onSuccess: (res) => {
+      if (res.videos.length === 0) {
+        toast.info("Tidak ada file video di folder ini.");
+      } else {
+        toast.success(`${res.videos.length} video ditemukan.`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const folderVideos = browseFolder.data?.videos ?? [];
+  const subFolders = browseFolder.data?.folders ?? [];
+
+  const pickVideo = (file: { id: string; name: string; webViewLink: string }) => {
+    setSelectedFileId(file.id);
+    setDriveUrl(file.webViewLink);
+    if (!title.trim()) setTitle(file.name.replace(/\.[^.]+$/, "").slice(0, 100));
+  };
 
   const connected = status.data?.connected ?? false;
   const configured = status.data?.configured ?? false;
