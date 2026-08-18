@@ -271,6 +271,86 @@ function Home() {
           style={{ boxShadow: "var(--shadow-panel)" }}
         >
           <div className="space-y-2">
+            <Label htmlFor="folder">Folder Google Drive (opsional)</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <FolderOpen className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="folder"
+                  className="pl-9"
+                  placeholder="https://drive.google.com/drive/folders/..."
+                  value={folderUrl}
+                  onChange={(e) => setFolderUrl(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!folderUrl.trim() || browseFolder.isPending}
+                onClick={() => browseFolder.mutate(folderUrl)}
+              >
+                {browseFolder.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>Muat video</>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tempel link folder, lalu pilih salah satu video di bawah tanpa menyalin link satu per
+              satu.
+            </p>
+
+            {subFolders.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {subFolders.map((f) => (
+                  <Button
+                    key={f.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFolderUrl(f.webViewLink);
+                      browseFolder.mutate(f.webViewLink);
+                    }}
+                  >
+                    <FolderOpen className="size-3.5" /> {f.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {folderVideos.length > 0 && (
+              <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-border p-1">
+                {folderVideos.map((f) => (
+                  <li key={f.id}>
+                    <button
+                      type="button"
+                      onClick={() => pickVideo(f)}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        selectedFileId === f.id
+                          ? "bg-primary/10 text-foreground"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      <Film className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      {f.size != null && (
+                        <span className="text-xs text-muted-foreground">
+                          {(f.size / 1024 / 1024).toFixed(1)} MB
+                        </span>
+                      )}
+                      {selectedFileId === f.id && (
+                        <CheckCircle2 className="size-4 text-primary" />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="drive">Link Google Drive (akses publik)</Label>
             <div className="relative">
               <Link2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
