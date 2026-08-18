@@ -2,15 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
 export const getYoutubeStatus = createServerFn({ method: "GET" }).handler(async () => {
-  const { getGoogleCredentials, loadAccount } = await import("./youtube.server");
+  const { getGoogleCredentials, loadAccounts } = await import("./youtube.server");
   const { clientId, clientSecret } = getGoogleCredentials();
   const configured = Boolean(clientId && clientSecret);
-  if (!configured) return { configured: false, connected: false, channelTitle: null };
-  const account = await loadAccount();
+  if (!configured) return { configured: false, connected: false, channelTitle: null, accounts: [] };
+  const accounts = await loadAccounts();
   return {
     configured: true,
-    connected: Boolean(account),
-    channelTitle: account?.channel_title ?? null,
+    connected: accounts.length > 0,
+    channelTitle: accounts[0]?.channel_title ?? null,
+    accounts: accounts.map((a) => ({ id: a.channel_id, title: a.channel_title })),
   };
 });
 
@@ -27,18 +28,35 @@ export const getYoutubeAuthUrl = createServerFn({ method: "POST" }).handler(asyn
     response_type: "code",
     scope: `${YOUTUBE_SCOPE} https://www.googleapis.com/auth/youtube.readonly`,
     access_type: "offline",
-    prompt: "consent",
+    prompt: "consent select_account",
     include_granted_scopes: "true",
   });
   return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };
 });
 
 export const listYoutubeChannels = createServerFn({ method: "GET" }).handler(async () => {
-  const { getValidAccessToken, listChannels, loadAccount } = await import("./youtube.server");
-  const account = await loadAccount();
-  if (!account) return [];
-  const token = await getValidAccessToken();
-  return await listChannels(token);
+  const { getValidAccessToken, listChannels, loadAccounts } = await import("./youtube.server");
+  const accounts = await loadAccounts();
+  const results: Array<{ id: string; title: string; thumbnail: string | null }> = [];
+  for (const account of accounts) {
+    try {
+      const token = await getValidAccessToken(account.channel_id);
+      const channels = await listChannels(token);
+      for (const c of channels) {
+        if (!results.some((r) => r.id === c.id)) results.push(c);
+      }
+    } catch {
+      // token channel ini bermasalah — tetap tampilkan data dasar dari DB
+      if (!results.some((r) => r.id === account.channel_id)) {
+        results.push({
+          id: account.channel_id,
+          title: account.channel_title ?? account.channel_id,
+          thumbnail: null,
+        });
+      }
+    }
+  }
+  return results;
 });
 
 export const getAppSettings = createServerFn({ method: "GET" }).handler(async () => {
@@ -91,11 +109,15 @@ export const saveAppSettings = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const disconnectYoutube = createServerFn({ method: "POST" }).handler(async () => {
-  const { deleteAccount } = await import("./youtube.server");
-  await deleteAccount();
-  return { ok: true };
-});
+export const disconnectYoutube = createServerFn({ method: "POST" })
+  .inputValidator((input?: { channelId?: string | null }) => ({
+    channelId: input?.channelId?.trim() || null,
+  }))
+  .handler(async ({ data }) => {
+    const { deleteAccount } = await import("./youtube.server");
+    await deleteAccount(data.channelId);
+    return { ok: true };
+  });
 
 export const listUploads = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
