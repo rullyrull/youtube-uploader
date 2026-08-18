@@ -131,7 +131,7 @@ function Home() {
       toast.success(channelId ? "Channel diputus." : "Semua channel diputus.");
       queryClient.invalidateQueries({ queryKey: ["yt-status"] });
       queryClient.invalidateQueries({ queryKey: ["yt-channels"] });
-      if (!channelId || channelId === channelIdState) setChannelId("");
+      setChannelId((current) => (!channelId || channelId === current ? "" : current));
     },
     onError: (e: Error) => toast.error(e.message),
   });
