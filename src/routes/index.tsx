@@ -3,7 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Youtube, Link2, LogOut, UploadCloud, CheckCircle2, XCircle, Plus } from "lucide-react";
+import {
+  Youtube,
+  Link2,
+  LogOut,
+  UploadCloud,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  FolderOpen,
+  Film,
+  Loader2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +38,7 @@ import {
   saveAppSettings,
   uploadFromDrive,
 } from "@/lib/youtube.functions";
+import { listDriveFolderVideos } from "@/lib/drive.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -62,8 +74,11 @@ function Home() {
   const authUrlFn = useServerFn(getYoutubeAuthUrl);
   const disconnectFn = useServerFn(disconnectYoutube);
   const uploadFn = useServerFn(uploadFromDrive);
+  const listFolderFn = useServerFn(listDriveFolderVideos);
 
   const [driveUrl, setDriveUrl] = useState("");
+  const [folderUrl, setFolderUrl] = useState("");
+  const [selectedFileId, setSelectedFileId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [privacy, setPrivacy] = useState("private");
