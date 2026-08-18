@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Youtube, Link2, LogOut, UploadCloud, CheckCircle2, XCircle } from "lucide-react";
+import { Youtube, Link2, LogOut, UploadCloud, CheckCircle2, XCircle, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,12 +126,12 @@ function Home() {
   });
 
   const disconnect = useMutation({
-    mutationFn: () => disconnectFn(),
-    onSuccess: () => {
-      toast.success("Akun YouTube diputus.");
+    mutationFn: (channelId?: string | null) => disconnectFn({ data: { channelId: channelId ?? null } }),
+    onSuccess: (_res, channelId) => {
+      toast.success(channelId ? "Channel diputus." : "Semua channel diputus.");
       queryClient.invalidateQueries({ queryKey: ["yt-status"] });
       queryClient.invalidateQueries({ queryKey: ["yt-channels"] });
-      setChannelId("");
+      if (!channelId || channelId === channelIdState) setChannelId("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -152,6 +152,7 @@ function Home() {
 
   const connected = status.data?.connected ?? false;
   const configured = status.data?.configured ?? false;
+  const accounts = status.data?.accounts ?? [];
 
   return (
     <main className="min-h-screen px-4 py-12">
@@ -177,28 +178,53 @@ function Home() {
           className="rounded-2xl border border-border bg-card p-6"
           style={{ boxShadow: "var(--shadow-panel)" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-medium">Akun YouTube</h2>
-              <p className="text-sm text-muted-foreground">
-                {!configured
-                  ? "Kredensial Google OAuth belum diatur."
-                  : connected
-                    ? `Terhubung${status.data?.channelTitle ? ` — ${status.data.channelTitle}` : ""}`
-                    : "Belum terhubung"}
-              </p>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-medium">Akun YouTube</h2>
+                <p className="text-sm text-muted-foreground">
+                  {!configured
+                    ? "Kredensial Google OAuth belum diatur."
+                    : connected
+                      ? `${accounts.length} channel terhubung`
+                      : "Belum terhubung"}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={connected ? "secondary" : "default"}
+                  disabled={!configured || connect.isPending}
+                  onClick={() => connect.mutate()}
+                >
+                  {connected ? <Plus className="size-4" /> : <Youtube className="size-4" />}
+                  {connected ? "Tambah channel lain" : "Login YouTube"}
+                </Button>
+                {connected && (
+                  <Button variant="ghost" onClick={() => disconnect.mutate(null)}>
+                    <LogOut className="size-4" /> Putuskan semua
+                  </Button>
+                )}
+              </div>
             </div>
-            {connected ? (
-              <Button variant="secondary" onClick={() => disconnect.mutate()}>
-                <LogOut className="size-4" /> Putuskan
-              </Button>
-            ) : (
-              <Button
-                disabled={!configured || connect.isPending}
-                onClick={() => connect.mutate()}
-              >
-                <Youtube className="size-4" /> Login YouTube
-              </Button>
+
+            {accounts.length > 0 && (
+              <ul className="space-y-2">
+                {accounts.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-2"
+                  >
+                    <span className="truncate text-sm">{a.title ?? a.id}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => disconnect.mutate(a.id)}
+                    >
+                      Putuskan
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </section>
@@ -239,10 +265,10 @@ function Home() {
                 ))}
               </SelectContent>
             </Select>
-            {connected && (channels.data?.length ?? 0) <= 1 && (
+            {connected && (
               <p className="text-xs text-muted-foreground">
-                Hanya channel yang Anda pilih saat login yang tampil. Untuk channel lain,
-                putuskan lalu login ulang dan pilih channel tersebut.
+                Channel lain belum muncul? Klik "Tambah channel lain" lalu pilih akun/channel
+                tersebut saat login Google.
               </p>
             )}
           </div>
